@@ -12,34 +12,6 @@ output:
             ]
 ---
 
-Welcome to this tutorial. The aim is to provide a guide to the preliminary downstream analysis of BLISS data. A [Nature Protocols article]() provides a summary of the BLISS technology and a walkthrough on the analysis and interpretation of the results.
-
----
-
-## Getting Started
-
-### Requirements
-
-* Internet connection (to dynamically retrieve the ENSEMBL reference annotation)
-* R >= 3.6 (optionally, RStudio)
-* R packages: GenomicFeatures, AnnotationHub, biomaRt, rtracklayer, data.table, circlize, ggplot2, ggpubr, ggsci
-
-### Setup
-
-First, clone this repository on your computer and move to the new directory:
-
-```{bash, eval=FALSE}
-git clone git@github.com:BiCroLab/blissNPanalysis.git
-
-cd blissNPanalysis
-```
-
-This tutorial assumes that the data required, which can be downloaded from [here](), is located in the _./data_ folder. 
-
-Once the data has been downloaded and moved to the data folder, open R and continue to the following section.
-
----
-
 ## BLISS Downstream Analysis (Mouse)
 
 ```{r setupEnv, include=FALSE}

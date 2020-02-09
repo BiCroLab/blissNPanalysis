@@ -1,41 +1,5 @@
-Tutorial on BLISS Downstream Analysis
+Tutorial on BLISS Downstream Analysis (human)
 ================
-
-Welcome to this tutorial. The aim is to provide a guide to the
-preliminary downstream analysis of BLISS data. A [Nature Protocols
-article]() provides a summary of the BLISS technology and a walkthrough
-on the analysis and interpretation of the results.
-
------
-
-## Getting Started
-
-### Requirements
-
-  - Internet connection (to dynamically retrieve the ENSEMBL reference
-    annotation)
-  - R \>= 3.6 (optionally, RStudio)
-  - R packages: GenomicFeatures, AnnotationHub, biomaRt, rtracklayer,
-    data.table, circlize, ggplot2, ggpubr, ggsci
-
-### Setup
-
-First, clone this repository on your computer and move to the new
-directory:
-
-``` bash
-git clone git@github.com:BiCroLab/blissNPanalysis.git
-
-cd blissNPanalysis
-```
-
-This tutorial assumes that the data required, which can be downloaded
-from [here](), is located in the *./data* folder.
-
-Once the data has been downloaded and moved to the data folder, open R
-and continue to the following section.
-
------
 
 ## BLISS Downstream Analysis (Human)
 
@@ -162,7 +126,7 @@ chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths
 chrom_sizes = keepStandardChromosomes(chrom_sizes)
 
 # Genome binning
-window_size = 2e3
+window_size = 1e5
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=window_size, cut.last.tile.in.chrom=TRUE)
 # Remove windows that are smaller than the window size (i.e., the last window at the end of each chromosome)
 genomic_tiles = genomic_tiles[width(genomic_tiles)==window_size]
@@ -283,7 +247,7 @@ Visualise the density of DSB events across the genome:
 
 pl = data
 for( i in seq_along(pl) ){
-    pl[[i]] = pl[[i]][!seqnames%in%c("Y", "MT")]
+    pl[[i]] = pl[[i]][seqnames%in%c(1:22, "X")]
     # pl[[i]][score>100, score := 100]
 }
 
@@ -296,7 +260,7 @@ png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height
         sel_col = sel_col[((i-1)*2+1):(i*2)]
         for( name in sampleTable[Treatment==treatment, name] ){
             circos.trackHist(with(pl[[name]], rep(paste0("chr", seqnames), score)), with(pl[[name]], rep(start, score)),
-                             bin.size=1e6, col = sel_col[ii], track.height = 0.2, track.index=i+2, draw.density=TRUE, area=FALSE)
+                             bin.size=1e6, col = sel_col[ii], track.height = 0.1, track.index=i+2, draw.density=TRUE, area=FALSE)
             ii = ii+1
         }
         i = i+1
