@@ -1,8 +1,6 @@
 Tutorial on BLISS Downstream Analysis (human)
 ================
 
-## BLISS Downstream Analysis (Human)
-
 Load the required packages:
 
 ``` r
@@ -29,6 +27,8 @@ species = "hsapiens_gene_ensembl"
 annotation = "http://feb2014.archive.ensembl.org"
 # List of blacklisted regions (obtained from 'https://github.com/Boyle-Lab/Blacklist/tree/master/lists')
 blacklist = "hg19-blacklist.v2.bed.gz"
+
+chromosomes = c(1:22, "X")
 
 # A countOverlaps function with 'Union' mode, which takes into account the 'score' column
 countOverlapsWeighted <- function(query, subject, keepAmbiguous=FALSE){
@@ -79,6 +79,7 @@ data = lapply(with(sampleTable, setNames(path, name)),
                               col.names=c("seqnames", "start", "end", "score"),
                               colClasses=c("character", "numeric", "numeric", "numeric"))
                   setkeyv(tmp, c("seqnames", "start", "end"))
+                  tmp = tmp[seqnames%in%chromosomes,]
                   # Filter out DSBs falling within blacklisted regions
                   tmp2 = fsetdiff(tmp[, 1:3, with=FALSE], blacklist)
                   tmp2[tmp, score := score]
@@ -104,7 +105,7 @@ fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
     scale_y_log10("DSB locations") +
     scale_colour_npg() +
     theme_bw() + theme(plot.title=element_text(hjust=0.5))
-ggsave(fig1a, filename=file.path("images", "fig1a_human.png"), units="in", width=8, height=8, dpi=300)
+ggsave(fig1a, filename=file.path("images", "fig1a_human.png"), units="in", width=8, height=6, dpi=300)
 ```
 
 ![](images/fig1a_human.png)
@@ -123,7 +124,7 @@ chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL",
 
 ``` r
 chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths=length, isCircular=NA, genome=genome))
-chrom_sizes = keepStandardChromosomes(chrom_sizes)
+chrom_sizes = keepSeqlevels(chrom_sizes, chromosomes)
 
 # Genome binning
 window_size = 1e5
@@ -225,11 +226,11 @@ pl[order(biotype), position := cumsum(percentage)- 0.5*percentage, by="variable"
 fig1c = ggplot(pl, aes(x=as.factor(1), y=percentage, fill=biotype)) +
     geom_bar(stat="identity", position="stack", col="black") +
     scale_fill_npg(name="") +
-    geom_text(aes(y=1-position, label=paste0(round(percentage*100, 1), "%"), x=1.65)) +
+    geom_text(aes(y=1-position, label=paste0(round(percentage*100, 1), "%"), x=1.7)) +
     facet_wrap(~variable) +
     theme_void() +
     coord_polar(theta="y", direction=-1)
-ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width=8, height=8, dpi=300)
+ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width=10, height=8, dpi=300)
 ```
 
 ![](images/fig1c_human.png)
@@ -237,30 +238,32 @@ ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width
 Visualise the density of DSB events across the genome:
 
 ``` r
-# genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
-# 
-# pl = lapply(data,
-#             function(x)
-#                 data.table(as.data.frame(genomic_tiles),
-#                            count = countOverlapsWeighted(genomic_tiles,
-#                                                          with(x, GRanges(seqnames, IRanges(start, width=1), score=score)))))
+genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
 
-pl = data
-for( i in seq_along(pl) ){
-    pl[[i]] = pl[[i]][seqnames%in%c(1:22, "X")]
-    # pl[[i]][score>100, score := 100]
-}
+pl = lapply(data,
+            function(x)
+                data.table(as.data.frame(genomic_tiles),
+                           count = countOverlapsWeighted(genomic_tiles,
+                                                         with(x, GRanges(seqnames, IRanges(start, width=1), score=score)))))
+
+pl = lapply(pl,
+            function(x){
+                x[, cpm := count/sum(count)*1e6]
+                x[cpm>1e3, cpm := 1e3]
+                return(x[, .(chr=paste0("chr", seqnames), start, end, value = cpm)])
+                })
 
 png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height=8, res=300)
-    circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", c(1:22, "X")))
+    sel_col = get_palette("Paired", nrow(sampleTable))
     i = 1
+    circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
     for( treatment in sampleTable[, rev(unique(Treatment))] ){
+        circos.track(factors=paste0("chr", chromosomes), ylim=c(0, 1000), track.height = 0.1)
         ii = 1
-        sel_col = get_palette("Paired", i*2)
-        sel_col = sel_col[((i-1)*2+1):(i*2)]
         for( name in sampleTable[Treatment==treatment, name] ){
-            circos.trackHist(with(pl[[name]], rep(paste0("chr", seqnames), score)), with(pl[[name]], rep(start, score)),
-                             bin.size=1e6, col = sel_col[ii], track.height = 0.1, track.index=i+2, draw.density=TRUE, area=FALSE)
+            for( chrom in pl[[name]][, unique(chr)] )
+            circos.genomicLines(region=pl[[name]][chr==chrom,], value=pl[[name]][chr==chrom,], numeric.column=4,
+                                sector.index=chrom, col = sel_col[2*(i-1)+ii], track.index=i+2)
             ii = ii+1
         }
         i = i+1
