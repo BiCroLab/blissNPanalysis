@@ -9,9 +9,11 @@ on the analysis and interpretation of the results.
 
 ### Requirements
 
-In order to run this tutorial, the following tools are needed: \*
-Internet connection (to dynamically retrieve the ENSEMBL reference
-annotation) \* R \>= 3.6 \* Installed R packages: GenomicFeatures,
+In order to run this tutorial, the following tools are needed:
+* Internet connection (to dynamically retrieve the ENSEMBL reference
+annotation)
+* R \>= 3.6.0
+* Installed R packages: GenomicFeatures,
 AnnotationHub, biomaRt, rtracklayer, data.table, circlize, ggplot2,
 ggpubr, ggsci
 
