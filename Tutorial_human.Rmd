@@ -82,7 +82,8 @@ sampleTable = data.table(name = c("BB61_DMSO_1", "BB62_DMSO_2", "BB61_ETO_1", "B
 Load blacklist regions and BLISS DSBs files:
 ```{r loadData}
 # Load the blacklist file
-blacklist = fread(cmd=paste("gunzip -c", blacklist), select=1:3, col.names=c("seqnames", "start", "end"))
+blacklist = fread(cmd=paste("gunzip -c", blacklist),
+                  select=1:3, col.names=c("seqnames", "start", "end"))
 
 # Transform chromosome names, and coordinates to 1-based
 blacklist[, `:=`(seqnames = gsub("chr", "", seqnames),  start = start+1, end = end+1)]
@@ -126,16 +127,15 @@ ggsave(fig1a, filename=file.path("images", "fig1a_human.png"), units="in", width
 
 Dynamically retrieve from ENSEMBL the chromosome lengths and bin the genome into 2 kb windows:
 ```{r createGenomicBins}
-chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL",
-                                      dataset=species,
-                                      host=annotation)
-chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths=length, isCircular=NA, genome=genome))
+chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL", dataset=species, host=annotation)
+chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths=length, isCircular=NA,
+                                        genome=genome))
 chrom_sizes = keepSeqlevels(chrom_sizes, chromosomes)
 
 # Genome binning
 window_size = 1e5
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=window_size, cut.last.tile.in.chrom=TRUE)
-# Remove windows that are smaller than the window size (i.e., the last window at the end of each chromosome)
+# Remove bins that are smaller than window size (i.e., the last bin at the end of each chromosome)
 genomic_tiles = genomic_tiles[width(genomic_tiles)==window_size]
 ```
 
@@ -151,8 +151,8 @@ pl = cor(pl[rowSums(pl)>0,], method="pearson", use="pairwise.complete.obs")
 
 pl[lower.tri(pl)] = NA
 
-pl = melt.data.table(data.table(pl, keep.rownames = "Row"),
-                     id.vars = "Row", variable.name = "Col", value.name = "Value")
+pl = melt.data.table(data.table(pl, keep.rownames = "Row"), id.vars = "Row", variable.name = "Col",
+                     value.name = "Value")
 
 pl[, Col := factor(Col, levels = sampleTable[, name])]
 pl[, Row := factor(Row, levels = sampleTable[, name])]
@@ -197,11 +197,13 @@ Dynamically retrieve from ENSEMBL the gene annotation and create the GRanges obj
 ensembl = useEnsembl(biomart="ENSEMBL_MART_ENSEMBL",
                      dataset=species,
                      host=annotation)
-genes <- getBM(attributes=c('chromosome_name','start_position','end_position', 'strand', 'gene_biotype', 'ensembl_gene_id'),
+genes <- getBM(attributes=c('chromosome_name','start_position','end_position','strand', 'gene_biotype',
+                            'ensembl_gene_id'),
                filters = 'chromosome_name', values = seqnames(chrom_sizes), mart = ensembl)
 # Create the GRanges object
-genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_position), strand = ifelse(strand>0, "+", "-"),
-                               biotype=gene_biotype, gene_id = ensembl_gene_id))
+genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_position),
+                               strand = ifelse(strand>0, "+", "-"), biotype=gene_biotype,
+                               gene_id = ensembl_gene_id))
 ```
 
 
@@ -210,7 +212,8 @@ Calculate the distribution of DSB events across genic and intergenic portions of
 pl = sapply(data,
             function(x)
                 countOverlapsWeighted(genes_gr,
-                                      with(x, GRanges(seqnames, IRanges(start, width=1), score=score)), keepAmbiguous=TRUE))
+                                      with(x, GRanges(seqnames, IRanges(start, width=1), score=score)),
+                                      keepAmbiguous=TRUE))
 pl = data.table(as.data.frame(genes_gr), pl)
 
 pl = melt.data.table(pl, id.vars="biotype", measure.vars=sampleTable[, name])
@@ -221,7 +224,8 @@ pl = pl[, .(value = sum(value)), by=c("variable", "biotype")]
 # Add the promoter and intergenic counts
 pl_extra = rbindlist(lapply(seq_along(data),
                             function(i){
-                                tmp = with(data[[i]], GRanges(seqnames, IRanges(start, width=1), score=score))
+                                tmp = with(data[[i]], GRanges(seqnames, IRanges(start, width=1), 
+                                                              score=score))
                                 tmp = tmp[!overlapsAny(tmp, genes_gr),]
                                 prom = promoters(genes_gr, upstream=2e3, downstream=1)
                                 count = sum(countOverlapsWeighted(prom, tmp))
@@ -236,11 +240,11 @@ pl = rbindlist(list(pl, pl_extra))
 pl[, percentage := value/sum(value), by="variable"]
 
 # Collapse the minor biotypes into the 'other' group
-pl[!biotype%in%c("promoter", "protein_coding", "lincRNA", "intergenic"), biotype := "other"]
+pl[!biotype%in%c("promoter", "intergenic"), biotype := "gene"]
 
 pl = pl[, .(value=sum(value), percentage=sum(percentage)), by=c("variable", "biotype")]
 
-pl[, biotype := factor(biotype, levels=c("promoter", "protein_coding", "lincRNA", "other", "intergenic"))]
+pl[, biotype := factor(biotype, levels=c("promoter", "gene", "intergenic"))]
 
 pl[order(biotype), position := cumsum(percentage)- 0.5*percentage, by="variable"]
 
@@ -257,14 +261,16 @@ ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width
 ![](images/fig1c_human.png)
 
 Visualise the density of DSB events across the genome:
-```{r}
+```{r, message=FALSE, warning=FALSE}
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
 
 pl = lapply(data,
             function(x)
                 data.table(as.data.frame(genomic_tiles),
                            count = countOverlapsWeighted(genomic_tiles,
-                                                         with(x, GRanges(seqnames, IRanges(start, width=1), score=score)))))
+                                                         with(x, GRanges(seqnames,
+                                                                         IRanges(start, width=1),
+                                                                         score=score)))))
 
 pl = lapply(pl,
             function(x){
@@ -282,8 +288,9 @@ png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height
         ii = 1
         for( name in sampleTable[Treatment==treatment, name] ){
             for( chrom in pl[[name]][, unique(chr)] )
-            circos.genomicLines(region=pl[[name]][chr==chrom,], value=pl[[name]][chr==chrom,], numeric.column=4,
-                                sector.index=chrom, col = sel_col[2*(i-1)+ii], track.index=i+2)
+            circos.genomicLines(region=pl[[name]][chr==chrom,], value=pl[[name]][chr==chrom,],
+                                numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
+                                sector.index=chrom)
             ii = ii+1
         }
         i = i+1
@@ -294,3 +301,45 @@ dev.off()
 ```
 
 ![](images/fig1d_human.png)
+
+```{r, eval=FALSE, include=FALSE}
+genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
+
+pl = lapply(data,
+            function(x)
+                data.table(as.data.frame(genomic_tiles),
+                           count = countOverlapsWeighted(genomic_tiles,
+                                                         with(x, GRanges(seqnames,
+                                                                         IRanges(start, width=1),
+                                                                         score=score)))))
+
+pl = lapply(pl,
+            function(x){
+                x[, cpm := count/sum(count)*1e6]
+                # x[cpm>1e3, cpm := 1e3]
+                return(x[, .(chr=paste0("chr", seqnames), start, end, value = cpm)])
+                })
+
+pl = rbindlist(pl, idcol="sample")
+pl[, c("Exp", "Tre", "Rep") := tstrsplit(sample, "_")]
+pl = dcast(pl, Exp+chr+start+end+Rep~Tre, value.var="value")
+pl[, log2FC := log2((ETO+1)/(DMSO+1))]
+
+pl = pl[, .(chr, start, end, Exp, value=log2FC)]
+
+png(filename=file.path("images", "fig1d_bis_human.png"), units="in", width=8, height=8, res=300)
+    sel_col = get_palette("Paired", nrow(sampleTable))
+    i = 1
+    circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
+    for( exp in pl[, unique(Exp)] ){
+        circos.track(factors=paste0("chr", chromosomes), ylim=c(-2.5, 2), track.height = 0.1)
+            for( chrom in pl[Exp==exp, unique(chr)] )
+            circos.genomicLines(region=pl[Exp==exp & chr==chrom,], value=pl[Exp==exp & chr==chrom,],
+                                numeric.column=5, col = sel_col[i], track.index=i+2,
+                                sector.index=chrom)
+        i = i+1
+    }
+    text(0, 0, "TK6\nDSBs Genomic Profile", cex = 0.8)
+    circos.clear()
+dev.off()
+```
