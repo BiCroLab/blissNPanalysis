@@ -1,7 +1,7 @@
 Tutorial on BLISS Downstream Analysis (mouse)
 ================
 
-Load the required packages:
+Step 1: Load the required packages:
 
 ``` r
 require("GenomicFeatures")
@@ -16,7 +16,7 @@ require("ggsci")
 require("circlize")
 ```
 
-Define some analysis variables and functions:
+Step 2: Define some analysis variables and functions:
 
 ``` r
 # Genome assembly
@@ -48,7 +48,7 @@ countOverlapsWeighted <- function(query, subject, keepAmbiguous=FALSE){
 }
 ```
 
-Prepare the sample table, which will be our internal reference, and make
+Step 3: Prepare the sample table, which will be our internal reference, and make
 sure the paths and filenames are correct:
 
 ``` r
@@ -64,7 +64,7 @@ sampleTable = data.table(name = c("BB70_neg_rep1", "BB70_mid_rep1", "BB70_high_r
                                 "./data/BB72_CD73highM2E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz"))
 ```
 
-Load blacklist regions and BLISS DSBs files:
+Step 4: Load blacklist regions and sBLISS DSB files:
 
 ``` r
 # Load the blacklist file
@@ -90,7 +90,7 @@ data = lapply(with(sampleTable, setNames(path, name)),
               })
 ```
 
-Calculate the distribution of DSB events at different thresholds (in
+Step 5, plot 1: Calculate the distribution of DSB events at different thresholds (in
 this example, from 1 to 10):
 
 ``` r
@@ -113,7 +113,7 @@ ggsave(fig1a, filename=file.path("images", "fig1a_mouse.png"), units="in", width
 
 ![](images/fig1a_mouse.png)
 
-Dynamically retrieve from ENSEMBL the chromosome lengths and bin the
+Step 6: Dynamically retrieve from ENSEMBL the chromosome lengths and bin the
 genome into 2 kb windows:
 
 ``` r
@@ -136,7 +136,7 @@ genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=window_size, cut.l
 genomic_tiles = genomic_tiles[width(genomic_tiles)==window_size]
 ```
 
-Count the DSB events in each bin and plot the correlation between
+Step 7, plot 2: Count the DSB events in each bin and plot the correlation between
 samples:
 
 ``` r
@@ -171,7 +171,7 @@ ggsave(fig1b, filename=file.path("images", "fig1b_mouse.png"), units="in", width
 
 ![](images/fig1b_mouse.png)
 
-Dynamically retrieve from ENSEMBL the gene annotation and create the
+Step 8: Dynamically retrieve from ENSEMBL the gene annotation and create the
 GRanges object:
 
 ``` r
@@ -185,7 +185,7 @@ genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_posi
                                biotype=gene_biotype, gene_id = ensembl_gene_id))
 ```
 
-Calculate the distribution of DSB events across genic and intergenic
+Step 9, plot 3: Calculate the distribution of DSB events across genic and intergenic
 portions of the genome:
 
 ``` r
@@ -240,7 +240,7 @@ ggsave(fig1c, filename=file.path("images", "fig1c_mouse.png"), units="in", width
 
 ![](images/fig1c_mouse.png)
 
-Visualise the density of DSB events across the genome:
+Step 10, plot 4: Visualise the density of DSB events across the genome:
 
 ``` r
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
@@ -283,7 +283,7 @@ dev.off()
 
 ![](images/fig1d_mouse.png)
 
-Load expression data and select top and bottom 5% of protein-coding
+Step 11: Load expression data and select top and bottom 5% of protein-coding
 genes:
 
 ``` r
@@ -303,7 +303,7 @@ bot = genes_gr[genes_gr$gene_id%in%bot & seqnames(genes_gr)%in%chromosomes,]
 bot = bot[width(bot)>1e3]
 ```
 
-Calculate library sizes, which will be used to normalise the signal, and
+Step 12, plot 5: Calculate library sizes, which will be used to normalise the signal, and
 generate DSB metadata profiles across the body of most and least
 expressed genes:
 
@@ -411,7 +411,7 @@ ggsave(fig1e, filename=file.path("images", "fig1e_mouse.png"), units="in", width
 
 ![](images/fig1e_mouse.png)
 
-Generate DSB metadata profiles around the transcriptional start site
+Step 13, plot 6: Generate DSB metadata profiles around the transcriptional start site
 (TSS) of most and least expressed genes:
 
 ``` r
