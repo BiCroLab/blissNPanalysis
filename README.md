@@ -36,4 +36,4 @@ Once the data has been downloaded or moved to the data folder, open R
 and continue to either of the following sections:
 
 * [Human TK6 sBLISS analysis](README_human.md)
-* [Mouse CD73 sBLISS analysis](README_mouse.md)
+* [Mouse enterocyte sBLISS analysis](README_mouse.md)
