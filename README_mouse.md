@@ -14,6 +14,7 @@ require("ggplot2")
 require("ggpubr")
 require("ggsci")
 require("circlize")
+require("ComplexHeatmap")
 ```
 
 Step 2: Define some analysis variables and functions:
@@ -48,27 +49,29 @@ countOverlapsWeighted <- function(query, subject, keepAmbiguous=FALSE){
 }
 ```
 
-Step 3: Prepare the sample table, which will be our internal reference, and make
-sure the paths and filenames are correct:
+Step 3: Prepare the sample table, which will be our internal reference,
+and make sure the paths and filenames are correct:
 
 ``` r
-sampleTable = data.table(name = c("BB70_neg_rep1", "BB70_mid_rep1", "BB70_high_rep1","BB72_neg_rep2", "BB72_mid_rep2", "BB72_high_rep2"),
-                         Experiment = rep(c("BB70", "BB72"), each=3),
-                         Treatment = rep(c("neg", "mid", "high"), 2),
-                         Replicate = rep(c("1", "2"), each=3),
-                         path=c("./data/BB70_CD73negM1E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB70_CD73midM1E2911_ACGACCGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB70_CD73highM1E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB72_CD73negM2E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB72_CD73midM2E2911_ACGACCGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB72_CD73highM2E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz"))
+sampleTable = data.table(name = c("BB70_neg_rep1", "BB70_mid_rep1", "BB70_high_rep1",
+                                  "BB72_neg_rep2", "BB72_mid_rep2", "BB72_high_rep2"),
+                        Experiment = rep(c("BB70", "BB72"), each=3),
+                        Treatment = rep(c("neg", "mid", "high"), 2),
+                        Replicate = rep(c("1", "2"), each=3),
+                        path=c("./data/BB70_CD73negM1E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
+                               "./data/BB70_CD73midM1E2911_ACGACCGC_chr-loc-countDifferentUMI.bed.gz",
+                               "./data/BB70_CD73highM1E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz",
+                               "./data/BB72_CD73negM2E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
+                               "./data/BB72_CD73midM2E2911_ACGACCGC_chr-loc-countDifferentUMI.bed.gz",
+                               "./data/BB72_CD73highM2E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz"))
 ```
 
 Step 4: Load blacklist regions and sBLISS DSB files:
 
 ``` r
 # Load the blacklist file
-blacklist = fread(cmd=paste("gunzip -c", blacklist), select=1:3, col.names=c("seqnames", "start", "end"))
+blacklist = fread(cmd=paste("gunzip -c", blacklist),
+                  select=1:3, col.names=c("seqnames", "start", "end"))
 
 # Transform chromosome names, and coordinates to 1-based
 blacklist[, `:=`(seqnames = gsub("chr", "", seqnames),  start = start+1, end = end+1)]
@@ -81,7 +84,7 @@ data = lapply(with(sampleTable, setNames(path, name)),
                               col.names=c("seqnames", "start", "end", "score"),
                               colClasses=c("character", "numeric", "numeric", "numeric"))
                   setkeyv(tmp, c("seqnames", "start", "end"))
-                  tmp[seqnames==20, seqnames := "X"][seqnames==21, seqnames := "Y"][seqnames==22, seqnames := "MT"]
+                  tmp[seqnames==20, seqnames := "X"] # Fix the chromosome name for 
                   tmp = tmp[seqnames%in%chromosomes,]
                   # Filter out DSBs falling within blacklisted regions
                   tmp2 = fsetdiff(tmp[, 1:3, with=FALSE], blacklist)
@@ -90,8 +93,8 @@ data = lapply(with(sampleTable, setNames(path, name)),
               })
 ```
 
-Step 5, plot 1: Calculate the distribution of DSB events at different thresholds (in
-this example, from 1 to 10):
+Step 5, plot 1: Calculate the distribution of DSB events at different
+thresholds (in this example, from 1 to 10):
 
 ``` r
 breaks = 1:10
@@ -102,7 +105,7 @@ pl[, variable := as.numeric(gsub("V", "", variable))]
 pl[, c("Experiment", "Treatment", "Replicate") := tstrsplit(name, "_")]
 
 fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
-    ggtitle("CD73 Cells") +
+    ggtitle("Enterocytes") +
     geom_point(size=3) + geom_line(lwd=0.75) +
     scale_x_continuous("at least # UMIs per location", breaks=breaks) +
     scale_y_log10("DSB locations") +
@@ -111,10 +114,12 @@ fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
 ggsave(fig1a, filename=file.path("images", "fig1a_mouse.png"), units="in", width=8, height=6, dpi=300)
 ```
 
-![](images/fig1a_mouse.png)
+| ![](images/fig1a_mouse.png) |
+| :-------------------------: |
+|          *Plot 1*           |
 
-Step 6: Dynamically retrieve from ENSEMBL the chromosome lengths and bin the
-genome into 2 kb windows:
+Step 6: Dynamically retrieve from ENSEMBL the chromosome lengths and bin
+the genome into 2 kb windows:
 
 ``` r
 chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL",
@@ -136,8 +141,8 @@ genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=window_size, cut.l
 genomic_tiles = genomic_tiles[width(genomic_tiles)==window_size]
 ```
 
-Step 7, plot 2: Count the DSB events in each bin and plot the correlation between
-samples:
+Step 7, plot 2: Count the DSB events in each bin and plot the
+correlation between samples:
 
 ``` r
 pl = sapply(data,
@@ -169,10 +174,12 @@ fig1b = ggplot(pl, aes(x = Col, y = Row)) +
 ggsave(fig1b, filename=file.path("images", "fig1b_mouse.png"), units="in", width=8, height=8, dpi=300)
 ```
 
-![](images/fig1b_mouse.png)
+| ![](images/fig1b_mouse.png) |
+| :-------------------------: |
+|          *Plot 2*           |
 
-Step 8: Dynamically retrieve from ENSEMBL the gene annotation and create the
-GRanges object:
+Step 8: Dynamically retrieve from ENSEMBL the gene annotation and create
+the GRanges object:
 
 ``` r
 ensembl = useEnsembl(biomart="ENSEMBL_MART_ENSEMBL",
@@ -185,8 +192,8 @@ genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_posi
                                biotype=gene_biotype, gene_id = ensembl_gene_id))
 ```
 
-Step 9, plot 3: Calculate the distribution of DSB events across genic and intergenic
-portions of the genome:
+Step 9, plot 3: Calculate the distribution of DSB events across genic
+and intergenic portions of the genome:
 
 ``` r
 pl = sapply(data,
@@ -218,12 +225,10 @@ pl = rbindlist(list(pl, pl_extra))
 pl[, percentage := value/sum(value), by="variable"]
 
 # Collapse the minor biotypes into the 'other' group
-# pl[!biotype%in%c("promoter", "protein_coding", "lincRNA", "intergenic"), biotype := "other"]
 pl[!biotype%in%c("promoter", "intergenic"), biotype := "gene"]
 
 pl = pl[, .(value=sum(value), percentage=sum(percentage)), by=c("variable", "biotype")]
 
-# pl[, biotype := factor(biotype, levels=c("promoter", "protein_coding", "lincRNA", "other", "intergenic"))]
 pl[, biotype := factor(biotype, levels=c("promoter", "gene", "intergenic"))]
 
 pl[order(biotype), position := cumsum(percentage)- 0.5*percentage, by="variable"]
@@ -238,7 +243,9 @@ fig1c = ggplot(pl, aes(x=as.factor(1), y=percentage, fill=biotype)) +
 ggsave(fig1c, filename=file.path("images", "fig1c_mouse.png"), units="in", width=10, height=6, dpi=300)
 ```
 
-![](images/fig1c_mouse.png)
+| ![](images/fig1c_mouse.png) |
+| :-------------------------: |
+|          *Plot 3*           |
 
 Step 10, plot 4: Visualise the density of DSB events across the genome:
 
@@ -260,31 +267,37 @@ pl = lapply(pl,
 
 png(filename=file.path("images", "fig1d_mouse.png"), units="in", width=8, height=8, res=300)
     sel_col = get_palette("Paired", nrow(sampleTable))
+    lab_col = c()
     i = 1
     circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
     for( treatment in sampleTable[, rev(unique(Treatment))] ){
         circos.track(factors=paste0("chr", chromosomes), ylim=c(0, 1000), track.height = 0.1)
         ii = 1
-        for( name in sampleTable[Treatment==treatment, name] ){
-            for( chrom in pl[[name]][, unique(chr)] )
-            circos.genomicLines(region=pl[[name]][chr==chrom,], value=pl[[name]][chr==chrom,], numeric.column=4,
-                                sector.index=chrom, col = sel_col[2*(i-1)+ii], track.index=i+2)
+        for( id in sampleTable[Treatment==treatment, name] ){
+            for( chrom in pl[[id]][, unique(chr)] )
+            circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
+                                numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
+                                sector.index=chrom)
             ii = ii+1
+            lab_col = append(lab_col, paste(treatment, sampleTable[name==id, Replicate]))
         }
         i = i+1
     }
-    text(0, 0, "CD73\nDSBs Genomic Profile", cex = 0.8)
+    text(0, 0, "Enterocytes\nDSBs Genomic Profile", cex = 0.8)
+    lgd_lines = Legend(at = lab_col, type = "lines", 
+                   legend_gp = gpar(col = sel_col, lwd = 1, fill="white"),
+                   direction = "horizontal", nrow = 1)
+    draw(packLegend(lgd_lines), y = unit(6, "mm"), just = "center")
     circos.clear()
 dev.off()
 ```
 
-    ## pdf 
-    ##   2
+| ![](images/fig1d_mouse.png) |
+| :-------------------------: |
+|          *Plot 4*           |
 
-![](images/fig1d_mouse.png)
-
-Step 11: Load expression data and select top and bottom 5% of protein-coding
-genes:
+Step 11: Load expression data and select top and bottom 5% of
+protein-coding genes:
 
 ``` r
 TPM_table = fread("table_A_LCM_TPM_values.tsv", select=c(1:16, 19))
@@ -303,9 +316,9 @@ bot = genes_gr[genes_gr$gene_id%in%bot & seqnames(genes_gr)%in%chromosomes,]
 bot = bot[width(bot)>1e3]
 ```
 
-Step 12, plot 5: Calculate library sizes, which will be used to normalise the signal, and
-generate DSB metadata profiles across the body of most and least
-expressed genes:
+Step 12, plot 5: Calculate library sizes, which will be used to
+normalise the signal, and generate DSB metadata profiles across the body
+of most and least expressed genes:
 
 ``` r
 librarySize = sapply(data, function(x) sum(x[, score]))
@@ -409,14 +422,16 @@ fig1e = ggplot(pl, aes(x=pos-1, y=value, col=set)) +
 ggsave(fig1e, filename=file.path("images", "fig1e_mouse.png"), units="in", width=10, height=8, dpi=300)
 ```
 
-![](images/fig1e_mouse.png)
+| ![](images/fig1e_mouse.png) |
+| :-------------------------: |
+|          *Plot 5*           |
 
-Step 13, plot 6: Generate DSB metadata profiles around the transcriptional start site
-(TSS) of most and least expressed genes:
+Step 13, plot 6: Generate DSB metadata profiles around the
+transcriptional start site (TSS) of most and least expressed genes:
 
 ``` r
-num_bins = 101
-top_tiled = tile(promoters(top, upstream=1e3, downstream=1e3), n=num_bins)
+num_bins = 100
+top_tiled = tile(promoters(top, upstream=2.5e3, downstream=2.5e3), n=num_bins)
 names(top_tiled) = top$gene_id
 top_tiled = unlist(top_tiled, use.names=TRUE)
 top_tiled$gene_id = names(top_tiled)
@@ -451,11 +466,13 @@ fig1f = ggplot(pl, aes(x=pos-num_bins/2, y=value, col=set)) +
     scale_colour_uchicago(name="Gene set") +
     scale_x_continuous(name="Relative position",
         breaks=c(-num_bins/2, -num_bins/4, 0, num_bins/4, num_bins/2),
-                labels=c("-1kb", "-0.5kb", "TSS", "0.5kb", "+1kb")) +
+                labels=c("-2.5kb", "-1.25kb", "TSS", "1.25kb", "+2.5kb")) +
     scale_y_continuous("Normalised signal") +
     facet_wrap(~variable, ncol=2) +
     theme_bw() + theme(legend.position="top")
 ggsave(fig1f, filename=file.path("images", "fig1f_mouse.png"), units="in", width=10, height=8, dpi=300)
 ```
 
-![](images/fig1f_mouse.png)
+| ![](images/fig1f_mouse.png) |
+| :-------------------------: |
+|          *Plot 6*           |

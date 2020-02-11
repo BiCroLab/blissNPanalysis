@@ -278,7 +278,7 @@ ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width
 
 Step 10, plot 4: Visualise the density of DSB events across the genome:
 
-```{r, message=FALSE, warning=FALSE}
+```{r, results='hide'}
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
 
 pl = lapply(data,
@@ -320,7 +320,7 @@ png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height
                    direction = "horizontal", nrow = 1)
     draw(packLegend(lgd_lines), y = unit(6, "mm"), just = "center")
     circos.clear()
-invisible(dev.off())
+dev.off()
 ```
 
 | ![](images/fig1d_human.png) |
