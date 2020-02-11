@@ -62,7 +62,7 @@ sampleTable = data.table(name = c("BB61_DMSO_1", "BB62_DMSO_2", "BB61_ETO_1", "B
                                 "./data/BB62_TK6ETOrep2_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz"))
 ```
 
-Step 4: Load blacklist regions and BLISS DSBs files:
+Step 4: Load blacklist regions and sBLISS DSB files:
 
 ``` r
 # Load the blacklist file
