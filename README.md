@@ -14,8 +14,8 @@ In order to run this tutorial, the following tools are needed:
 annotation)
 * R \>= 3.6.0
 * Installed R packages: GenomicFeatures,
-AnnotationHub, biomaRt, rtracklayer, data.table, circlize, ggplot2,
-ggpubr, ggsci
+AnnotationHub, biomaRt, rtracklayer, data.table, circlize, ComplexHeatmap,
+ggplot2, ggpubr, ggsci
 
 ### Setup
 
