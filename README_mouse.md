@@ -64,7 +64,7 @@ sampleTable = data.table(name = c("BB70_neg_rep1", "BB70_mid_rep1", "BB70_high_r
                                 "./data/BB72_CD73highM2E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz"))
 ```
 
-Step 4: Load blacklist regions and BLISS DSBs files:
+Step 4: Load blacklist regions and sBLISS DSB files:
 
 ``` r
 # Load the blacklist file
