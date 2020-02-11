@@ -22,7 +22,8 @@ if( interactive() )
     setwd(working.folder)
 ```
 
-Load the required packages:
+Step 1: Load the required packages:
+
 ```{r loadPackages, message=FALSE, results="hide"}
 require("GenomicFeatures")
 require("AnnotationHub")
@@ -34,9 +35,11 @@ require("ggplot2")
 require("ggpubr")
 require("ggsci")
 require("circlize")
+require("ComplexHeatmap")
 ```
 
-Define some analysis variables and functions:
+Step 2: Define some analysis variables and functions:
+
 ```{r customFunctions}
 # Genome assembly
 genome = "hg19"
@@ -67,7 +70,8 @@ countOverlapsWeighted <- function(query, subject, keepAmbiguous=FALSE){
 }
 ```
 
-Prepare the sample table, which will be our internal reference, and make sure the paths and filenames are correct:
+Step 3: Prepare the sample table, which will be our internal reference, and make sure the paths and filenames are correct:
+
 ```{r sampleTable}
 sampleTable = data.table(name = c("BB61_DMSO_1", "BB62_DMSO_2", "BB61_ETO_1", "BB62_ETO_2"),
                          Experiment = c("BB61", "BB62", "BB61", "BB62"),
@@ -79,7 +83,8 @@ sampleTable = data.table(name = c("BB61_DMSO_1", "BB62_DMSO_2", "BB61_ETO_1", "B
                                 "./data/BB62_TK6ETOrep2_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz"))
 ```
 
-Load blacklist regions and BLISS DSBs files:
+Step 4: Load blacklist regions and sBLISS DSB files:
+
 ```{r loadData}
 # Load the blacklist file
 blacklist = fread(cmd=paste("gunzip -c", blacklist),
@@ -104,7 +109,8 @@ data = lapply(with(sampleTable, setNames(path, name)),
               })
 ```
 
-Calculate the distribution of DSB events at different thresholds (in this example, from 1 to 10):
+Step 5, plot 1: Calculate the distribution of DSB events at different thresholds (in this example, from 1 to 10):
+
 ```{r fig1a}
 breaks = 1:10
 pl = rbindlist(data, idcol="name")
@@ -123,9 +129,12 @@ fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
 ggsave(fig1a, filename=file.path("images", "fig1a_human.png"), units="in", width=8, height=6, dpi=300)
 ```
 
-![](images/fig1a_human.png)
+| ![](images/fig1a_human.png) |
+|:--:| 
+| *Plot 1* |
 
-Dynamically retrieve from ENSEMBL the chromosome lengths and bin the genome into 2 kb windows:
+Step 6: Dynamically retrieve from ENSEMBL the chromosome lengths and bin the genome into 2 kb windows:
+
 ```{r createGenomicBins}
 chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL", dataset=species, host=annotation)
 chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths=length, isCircular=NA,
@@ -139,7 +148,8 @@ genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=window_size, cut.l
 genomic_tiles = genomic_tiles[width(genomic_tiles)==window_size]
 ```
 
-Count the DSB events in each bin and plot the correlation between samples:
+Step 7, plot 2: Step Count the DSB events in each bin and plot the correlation between samples:
+
 ```{r, warning=FALSE, message=FALSE}
 pl = sapply(data,
             function(x)
@@ -170,7 +180,9 @@ fig1b = ggplot(pl, aes(x = Col, y = Row)) +
 ggsave(fig1b, filename=file.path("images", "fig1b_human.png"), units="in", width=8, height=8, dpi=300)
 ```
 
-![](images/fig1b_human.png)
+| ![](images/fig1b_human.png) |
+|:--:| 
+| *Plot 2* |
 
 ```{r, eval=FALSE, include=FALSE}
 dir.create("./macs2_input")
@@ -192,7 +204,8 @@ command = sampleTable[, paste("macs2 callpeak --format BED --outdir macs2_output
 log = sapply(command, system)
 ```
 
-Dynamically retrieve from ENSEMBL the gene annotation and create the GRanges object:
+Step 8: Dynamically retrieve from ENSEMBL the gene annotation and create the GRanges object:
+
 ```{r}
 ensembl = useEnsembl(biomart="ENSEMBL_MART_ENSEMBL",
                      dataset=species,
@@ -207,7 +220,8 @@ genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_posi
 ```
 
 
-Calculate the distribution of DSB events across genic and intergenic portions of the genome:
+Step 9, plot 3: Calculate the distribution of DSB events across genic and intergenic portions of the genome:
+
 ```{r}
 pl = sapply(data,
             function(x)
@@ -258,9 +272,12 @@ fig1c = ggplot(pl, aes(x=as.factor(1), y=percentage, fill=biotype)) +
 ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width=10, height=8, dpi=300)
 ```
 
-![](images/fig1c_human.png)
+| ![](images/fig1c_human.png) |
+|:--:| 
+| *Plot 3* |
 
-Visualise the density of DSB events across the genome:
+Step 10, plot 4: Visualise the density of DSB events across the genome:
+
 ```{r, message=FALSE, warning=FALSE}
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)
 
@@ -281,26 +298,34 @@ pl = lapply(pl,
 
 png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height=8, res=300)
     sel_col = get_palette("Paired", nrow(sampleTable))
+    lab_col = c()
     i = 1
     circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
     for( treatment in sampleTable[, rev(unique(Treatment))] ){
         circos.track(factors=paste0("chr", chromosomes), ylim=c(0, 1000), track.height = 0.1)
         ii = 1
-        for( name in sampleTable[Treatment==treatment, name] ){
-            for( chrom in pl[[name]][, unique(chr)] )
-            circos.genomicLines(region=pl[[name]][chr==chrom,], value=pl[[name]][chr==chrom,],
+        for( id in sampleTable[Treatment==treatment, name] ){
+            for( chrom in pl[[id]][, unique(chr)] )
+            circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
                                 numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
                                 sector.index=chrom)
             ii = ii+1
+            lab_col = append(lab_col, paste(treatment, sampleTable[name==id, Replicate]))
         }
         i = i+1
     }
     text(0, 0, "TK6\nDSBs Genomic Profile", cex = 0.8)
+    lgd_lines = Legend(at = lab_col, type = "lines", 
+                   legend_gp = gpar(col = sel_col, lwd = 2, fill="white"),
+                   direction = "horizontal", nrow = 1)
+    draw(packLegend(lgd_lines), y = unit(6, "mm"), just = "center")
     circos.clear()
-dev.off()
+invisible(dev.off())
 ```
 
-![](images/fig1d_human.png)
+| ![](images/fig1d_human.png) |
+|:--:| 
+| *Plot 4* |
 
 ```{r, eval=FALSE, include=FALSE}
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=1e6, cut.last.tile.in.chrom=TRUE)

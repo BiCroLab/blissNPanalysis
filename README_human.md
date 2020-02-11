@@ -14,6 +14,7 @@ require("ggplot2")
 require("ggpubr")
 require("ggsci")
 require("circlize")
+require("ComplexHeatmap")
 ```
 
 Step 2: Define some analysis variables and functions:
@@ -48,8 +49,8 @@ countOverlapsWeighted <- function(query, subject, keepAmbiguous=FALSE){
 }
 ```
 
-Step 3: Prepare the sample table, which will be our internal reference, and make
-sure the paths and filenames are correct:
+Step 3: Prepare the sample table, which will be our internal reference,
+and make sure the paths and filenames are correct:
 
 ``` r
 sampleTable = data.table(name = c("BB61_DMSO_1", "BB62_DMSO_2", "BB61_ETO_1", "BB62_ETO_2"),
@@ -66,7 +67,8 @@ Step 4: Load blacklist regions and sBLISS DSB files:
 
 ``` r
 # Load the blacklist file
-blacklist = fread(cmd=paste("gunzip -c", blacklist), select=1:3, col.names=c("seqnames", "start", "end"))
+blacklist = fread(cmd=paste("gunzip -c", blacklist),
+                  select=1:3, col.names=c("seqnames", "start", "end"))
 
 # Transform chromosome names, and coordinates to 1-based
 blacklist[, `:=`(seqnames = gsub("chr", "", seqnames),  start = start+1, end = end+1)]
@@ -87,8 +89,8 @@ data = lapply(with(sampleTable, setNames(path, name)),
               })
 ```
 
-Step 5, plot 1: Calculate the distribution of DSB events at different thresholds (in
-this example, from 1 to 10):
+Step 5, plot 1: Calculate the distribution of DSB events at different
+thresholds (in this example, from 1 to 10):
 
 ``` r
 breaks = 1:10
@@ -108,33 +110,34 @@ fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
 ggsave(fig1a, filename=file.path("images", "fig1a_human.png"), units="in", width=8, height=6, dpi=300)
 ```
 
-![](images/fig1a_human.png)
+| ![](images/fig1a_human.png) |
+| :-------------------------: |
+|          *Plot 1*           |
 
-Step 6: Dynamically retrieve from ENSEMBL the chromosome lengths and bin the
-genome into 2 kb windows:
+Step 6: Dynamically retrieve from ENSEMBL the chromosome lengths and bin
+the genome into 2 kb windows:
 
 ``` r
-chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL",
-                                      dataset=species,
-                                      host=annotation)
+chrom_sizes = getChromInfoFromBiomart(biomart="ENSEMBL_MART_ENSEMBL", dataset=species, host=annotation)
 ```
 
     ## Download and preprocess the 'transcripts' data frame ... OK
     ## Download and preprocess the 'chrominfo' data frame ... OK
 
 ``` r
-chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths=length, isCircular=NA, genome=genome))
+chrom_sizes = with(chrom_sizes, Seqinfo(seqnames=as.character(chrom), seqlengths=length, isCircular=NA,
+                                        genome=genome))
 chrom_sizes = keepSeqlevels(chrom_sizes, chromosomes)
 
 # Genome binning
 window_size = 1e5
 genomic_tiles = tileGenome(seqlengths(chrom_sizes), tilewidth=window_size, cut.last.tile.in.chrom=TRUE)
-# Remove windows that are smaller than the window size (i.e., the last window at the end of each chromosome)
+# Remove bins that are smaller than window size (i.e., the last bin at the end of each chromosome)
 genomic_tiles = genomic_tiles[width(genomic_tiles)==window_size]
 ```
 
-Step 7, plot 2: Step Count the DSB events in each bin and plot the correlation between
-samples:
+Step 7, plot 2: Step Count the DSB events in each bin and plot the
+correlation between samples:
 
 ``` r
 pl = sapply(data,
@@ -147,8 +150,8 @@ pl = cor(pl[rowSums(pl)>0,], method="pearson", use="pairwise.complete.obs")
 
 pl[lower.tri(pl)] = NA
 
-pl = melt.data.table(data.table(pl, keep.rownames = "Row"),
-                     id.vars = "Row", variable.name = "Col", value.name = "Value")
+pl = melt.data.table(data.table(pl, keep.rownames = "Row"), id.vars = "Row", variable.name = "Col",
+                     value.name = "Value")
 
 pl[, Col := factor(Col, levels = sampleTable[, name])]
 pl[, Row := factor(Row, levels = sampleTable[, name])]
@@ -166,30 +169,35 @@ fig1b = ggplot(pl, aes(x = Col, y = Row)) +
 ggsave(fig1b, filename=file.path("images", "fig1b_human.png"), units="in", width=8, height=8, dpi=300)
 ```
 
-![](images/fig1b_human.png)
+| ![](images/fig1b_human.png) |
+| :-------------------------: |
+|          *Plot 2*           |
 
-Step 8: Dynamically retrieve from ENSEMBL the gene annotation and create the
-GRanges object:
+Step 8: Dynamically retrieve from ENSEMBL the gene annotation and create
+the GRanges object:
 
 ``` r
 ensembl = useEnsembl(biomart="ENSEMBL_MART_ENSEMBL",
                      dataset=species,
                      host=annotation)
-genes <- getBM(attributes=c('chromosome_name','start_position','end_position', 'strand', 'gene_biotype', 'ensembl_gene_id'),
+genes <- getBM(attributes=c('chromosome_name','start_position','end_position','strand', 'gene_biotype',
+                            'ensembl_gene_id'),
                filters = 'chromosome_name', values = seqnames(chrom_sizes), mart = ensembl)
 # Create the GRanges object
-genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_position), strand = ifelse(strand>0, "+", "-"),
-                               biotype=gene_biotype, gene_id = ensembl_gene_id))
+genes_gr = with(genes, GRanges(chromosome_name, IRanges(start_position, end_position),
+                               strand = ifelse(strand>0, "+", "-"), biotype=gene_biotype,
+                               gene_id = ensembl_gene_id))
 ```
 
-Step 9, plot 3: Calculate the distribution of DSB events across genic and intergenic
-portions of the genome:
+Step 9, plot 3: Calculate the distribution of DSB events across genic
+and intergenic portions of the genome:
 
 ``` r
 pl = sapply(data,
             function(x)
                 countOverlapsWeighted(genes_gr,
-                                      with(x, GRanges(seqnames, IRanges(start, width=1), score=score)), keepAmbiguous=TRUE))
+                                      with(x, GRanges(seqnames, IRanges(start, width=1), score=score)),
+                                      keepAmbiguous=TRUE))
 pl = data.table(as.data.frame(genes_gr), pl)
 
 pl = melt.data.table(pl, id.vars="biotype", measure.vars=sampleTable[, name])
@@ -200,7 +208,8 @@ pl = pl[, .(value = sum(value)), by=c("variable", "biotype")]
 # Add the promoter and intergenic counts
 pl_extra = rbindlist(lapply(seq_along(data),
                             function(i){
-                                tmp = with(data[[i]], GRanges(seqnames, IRanges(start, width=1), score=score))
+                                tmp = with(data[[i]], GRanges(seqnames, IRanges(start, width=1), 
+                                                              score=score))
                                 tmp = tmp[!overlapsAny(tmp, genes_gr),]
                                 prom = promoters(genes_gr, upstream=2e3, downstream=1)
                                 count = sum(countOverlapsWeighted(prom, tmp))
@@ -215,11 +224,11 @@ pl = rbindlist(list(pl, pl_extra))
 pl[, percentage := value/sum(value), by="variable"]
 
 # Collapse the minor biotypes into the 'other' group
-pl[!biotype%in%c("promoter", "protein_coding", "lincRNA", "intergenic"), biotype := "other"]
+pl[!biotype%in%c("promoter", "intergenic"), biotype := "gene"]
 
 pl = pl[, .(value=sum(value), percentage=sum(percentage)), by=c("variable", "biotype")]
 
-pl[, biotype := factor(biotype, levels=c("promoter", "protein_coding", "lincRNA", "other", "intergenic"))]
+pl[, biotype := factor(biotype, levels=c("promoter", "gene", "intergenic"))]
 
 pl[order(biotype), position := cumsum(percentage)- 0.5*percentage, by="variable"]
 
@@ -233,7 +242,9 @@ fig1c = ggplot(pl, aes(x=as.factor(1), y=percentage, fill=biotype)) +
 ggsave(fig1c, filename=file.path("images", "fig1c_human.png"), units="in", width=10, height=8, dpi=300)
 ```
 
-![](images/fig1c_human.png)
+| ![](images/fig1c_human.png) |
+| :-------------------------: |
+|          *Plot 3*           |
 
 Step 10, plot 4: Visualise the density of DSB events across the genome:
 
@@ -244,7 +255,9 @@ pl = lapply(data,
             function(x)
                 data.table(as.data.frame(genomic_tiles),
                            count = countOverlapsWeighted(genomic_tiles,
-                                                         with(x, GRanges(seqnames, IRanges(start, width=1), score=score)))))
+                                                         with(x, GRanges(seqnames,
+                                                                         IRanges(start, width=1),
+                                                                         score=score)))))
 
 pl = lapply(pl,
             function(x){
@@ -255,25 +268,31 @@ pl = lapply(pl,
 
 png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height=8, res=300)
     sel_col = get_palette("Paired", nrow(sampleTable))
+    lab_col = c()
     i = 1
     circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
     for( treatment in sampleTable[, rev(unique(Treatment))] ){
         circos.track(factors=paste0("chr", chromosomes), ylim=c(0, 1000), track.height = 0.1)
         ii = 1
-        for( name in sampleTable[Treatment==treatment, name] ){
-            for( chrom in pl[[name]][, unique(chr)] )
-            circos.genomicLines(region=pl[[name]][chr==chrom,], value=pl[[name]][chr==chrom,], numeric.column=4,
-                                sector.index=chrom, col = sel_col[2*(i-1)+ii], track.index=i+2)
+        for( id in sampleTable[Treatment==treatment, name] ){
+            for( chrom in pl[[id]][, unique(chr)] )
+            circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
+                                numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
+                                sector.index=chrom)
             ii = ii+1
+            lab_col = append(lab_col, paste(treatment, sampleTable[name==id, Replicate]))
         }
         i = i+1
     }
     text(0, 0, "TK6\nDSBs Genomic Profile", cex = 0.8)
+    lgd_lines = Legend(at = lab_col, type = "lines", 
+                   legend_gp = gpar(col = sel_col, lwd = 2, fill="white"),
+                   direction = "horizontal", nrow = 1)
+    draw(packLegend(lgd_lines), y = unit(6, "mm"), just = "center")
     circos.clear()
-dev.off()
+invisible(dev.off())
 ```
 
-    ## pdf 
-    ##   2
-
-![](images/fig1d_human.png)
+| ![](images/fig1d_human.png) |
+| :-------------------------: |
+|          *Plot 4*           |
