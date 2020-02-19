@@ -58,12 +58,12 @@ sampleTable = data.table(name = c("Epatocyte_neg_rep1", "Epatocyte_mid_rep1", "E
                         Batch = rep(c("1", "2"), each=3),
                         Treatment = rep(c("neg", "mid", "high"), 2),
                         Replicate = rep(c("1", "2"), each=3),
-                        path=c("./data/BB70_CD73negM1E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
-                               "./data/BB70_CD73midM1E2911_ACGACCGC_chr-loc-countDifferentUMI.bed.gz",
-                               "./data/BB70_CD73highM1E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz",
-                               "./data/BB72_CD73negM2E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
-                               "./data/BB72_CD73midM2E2911_ACGACCGC_chr-loc-countDifferentUMI.bed.gz",
-                               "./data/BB72_CD73highM2E2911_TGATGCGC_chr-loc-countDifferentUMI.bed.gz"))
+                        path=c("./data/Enterocyte_Neg_M1.bed.gz",
+                               "./data/Enterocyte_Mid_M1.bed.gz",
+                               "./data/Enterocyte_High_M2.bed.gz",
+                               "./data/Enterocyte_Neg_M2.bed.gz",
+                               "./data/Enterocyte_Mid_M2.bed.gz",
+                               "./data/Enterocyte_High_M2.bed.gz"))
 ```
 
 Step 4: Load blacklist regions and sBLISS DSB files:

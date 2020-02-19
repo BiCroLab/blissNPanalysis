@@ -28,8 +28,8 @@ git clone git@github.com:BiCroLab/blissNPanalysis.git
 cd blissNPanalysis
 ```
 
-This tutorial assumes that the data required for its correct execution,
-which can be downloaded from [here](), can be found in the *./data*
+This tutorial assumes that the BED files required for its correct execution,
+which can be downloaded from [here](), are located in the *./data*
 folder.
 
 Once the data has been downloaded or moved to the data folder, open R

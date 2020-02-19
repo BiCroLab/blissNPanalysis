@@ -57,10 +57,10 @@ sampleTable = data.table(name = c("TK6_DMSO_1", "TK6_DMSO_2", "TK6_ETO_1", "TK6_
                          Batch = c("1", "2", "1", "2"),
                          Treatment = c("DMSO", "DMSO", "ETO", "ETO"),
                          Replicate = c("1", "2", "1", "2"),
-                         path=c("./data/BB61_TK6DMSOrep1_CATCACGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB62_TK6DMSOrep2_CATCACGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB61_TK6ETOrep1_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
-                                "./data/BB62_TK6ETOrep2_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz"))
+                         path=c("./data/TK6_DMSO_Rep1.bed.gz",
+                                "./data/TK6_DMSO_Rep2.bed.gz",
+                                "./data/TK6_ETO_Rep1.bed.gz",
+                                "./data/TK6_ETO_Rep2.bed.gz"))
 ```
 
 Step 4: Load blacklist regions and sBLISS DSB files:
