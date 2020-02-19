@@ -53,11 +53,11 @@ Step 3: Prepare the sample table, which will be our internal reference,
 and make sure the paths and filenames are correct:
 
 ``` r
-sampleTable = data.table(name = c("Epatocyte_neg_rep1", "Epatocyte_mid_rep1", "Epatocyte_high_rep1",
-                                  "Epatocyte_neg_rep2", "Epatocyte_mid_rep2", "Epatocyte_high_rep2"),
+sampleTable = data.table(name = c("Enterocyte_Neg_M1", "Enterocyte_Mid_M1", "Enterocyte_High_M1",
+                                  "Enterocyte_Neg_M2", "Enterocyte_Mid_M2", "Enterocyte_High_M2"),
                         Batch = rep(c("1", "2"), each=3),
-                        Treatment = rep(c("neg", "mid", "high"), 2),
-                        Replicate = rep(c("1", "2"), each=3),
+                        Treatment = rep(c("Neg", "Mid", "High"), 2),
+                        Subject = rep(c("M1", "M2"), each=3),
                         path=c("./data/Enterocyte_Neg_M1.bed.gz",
                                "./data/Enterocyte_Mid_M1.bed.gz",
                                "./data/Enterocyte_High_M2.bed.gz",
@@ -102,9 +102,9 @@ pl = rbindlist(data, idcol="name")
 pl = pl[, lapply(breaks, function(x) .SD[score>=x, .N]), by="name"]
 pl = melt.data.table(pl, id.vars="name")
 pl[, variable := as.numeric(gsub("V", "", variable))]
-pl[, c("Batch", "Treatment", "Replicate") := tstrsplit(name, "_")]
+pl[, c("Batch", "Treatment", "Subject") := tstrsplit(name, "_")]
 
-fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
+fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Subject)) +
     ggtitle("Enterocytes") +
     geom_point(size=3) + geom_line(lwd=0.75) +
     scale_x_continuous("at least # UMIs per location", breaks=breaks) +
@@ -411,7 +411,7 @@ pl_down = pl_down[, .(value = mean(value)), by=c("set", "variable", "pos")]
 
 pl = rbindlist(list(pl_up, pl, pl_down))
 pl[, `:=`(set = factor(set, levels=c("Top_5%", "Bottom_5%")),
-          variable = factor(variable, levels=sampleTable[order(-Treatment, Replicate), name]))]
+          variable = factor(variable, levels=sampleTable[order(-Treatment, Subject), name]))]
 
 fig1e = ggplot(pl, aes(x=pos-1, y=value, col=set)) +
     geom_line() +
@@ -462,7 +462,7 @@ pl[, `:=`(pos = ifelse(strand=="+", seq_along(value), rev(seq_along(value))), no
 pl = pl[, .(value = mean(value)), by=c("set", "variable", "pos")]
 
 pl[, `:=`(set = factor(set, levels=c("Top_5%", "Bottom_5%")),
-          variable = factor(variable, levels=sampleTable[order(-Treatment, Replicate), name]))]
+          variable = factor(variable, levels=sampleTable[order(-Treatment, Subject), name]))]
 
 fig1f = ggplot(pl, aes(x=pos-num_bins/2, y=value, col=set)) +
     geom_line() +
