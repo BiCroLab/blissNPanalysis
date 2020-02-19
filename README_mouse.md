@@ -1,4 +1,4 @@
-Tutorial on BLISS Downstream Analysis (mouse)
+Tutorial on sBLISS Downstream Analysis (mouse)
 ================
 
 Step 1: Load the required packages:
@@ -53,9 +53,9 @@ Step 3: Prepare the sample table, which will be our internal reference,
 and make sure the paths and filenames are correct:
 
 ``` r
-sampleTable = data.table(name = c("BB70_neg_rep1", "BB70_mid_rep1", "BB70_high_rep1",
-                                  "BB72_neg_rep2", "BB72_mid_rep2", "BB72_high_rep2"),
-                        Experiment = rep(c("BB70", "BB72"), each=3),
+sampleTable = data.table(name = c("Epatocyte_neg_rep1", "Epatocyte_mid_rep1", "Epatocyte_high_rep1",
+                                  "Epatocyte_neg_rep2", "Epatocyte_mid_rep2", "Epatocyte_high_rep2"),
+                        Batch = rep(c("1", "2"), each=3),
                         Treatment = rep(c("neg", "mid", "high"), 2),
                         Replicate = rep(c("1", "2"), each=3),
                         path=c("./data/BB70_CD73negM1E2911_GTCGTCGC_chr-loc-countDifferentUMI.bed.gz",
@@ -77,7 +77,7 @@ blacklist = fread(cmd=paste("gunzip -c", blacklist),
 blacklist[, `:=`(seqnames = gsub("chr", "", seqnames),  start = start+1, end = end+1)]
 setkeyv(blacklist, colnames(blacklist))
 
-# Load the BLISS samples
+# Load the sBLISS samples
 data = lapply(with(sampleTable, setNames(path, name)), 
               function(x){
                   tmp = fread(cmd=paste("gunzip -c", x), showProgress=FALSE,
@@ -102,7 +102,7 @@ pl = rbindlist(data, idcol="name")
 pl = pl[, lapply(breaks, function(x) .SD[score>=x, .N]), by="name"]
 pl = melt.data.table(pl, id.vars="name")
 pl[, variable := as.numeric(gsub("V", "", variable))]
-pl[, c("Experiment", "Treatment", "Replicate") := tstrsplit(name, "_")]
+pl[, c("Batch", "Treatment", "Replicate") := tstrsplit(name, "_")]
 
 fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
     ggtitle("Enterocytes") +
@@ -260,26 +260,30 @@ pl = lapply(data,
 
 pl = lapply(pl,
             function(x){
-                x[, cpm := count/sum(count)*1e6]
-                x[cpm>1e3, cpm := 1e3]
-                return(x[, .(chr=paste0("chr", seqnames), start, end, value = cpm)])
-                })
+                M = mean(x[, count])
+                SD = sd(x[, count])
+                x[, value := count]
+                x[value>(M+3*SD), value := (M+3*SD)]
+                return(x[, .(chr=paste0("chr", seqnames), start, end, value)])
+            })
 
 png(filename=file.path("images", "fig1d_mouse.png"), units="in", width=8, height=8, res=300)
-    sel_col = get_palette("Paired", nrow(sampleTable))
+    sel_col = get_palette("Paired", nrow(sampleTable))[c(2,4,6,1,3,5)]
+    toplim = ceiling(max(sapply(pl, function(x) x[, max(value)]))/1e3)*1e3
     lab_col = c()
     i = 1
     circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
-    for( treatment in sampleTable[, rev(unique(Treatment))] ){
-        circos.track(factors=paste0("chr", chromosomes), ylim=c(0, 1000), track.height = 0.1)
+    for( batch in sampleTable[, unique(Batch)] ){
+        circos.track(factors=paste0("chr", chromosomes), ylim=c(0, toplim), track.height = 0.15)
         ii = 1
-        for( id in sampleTable[Treatment==treatment, name] ){
+        for( id in sampleTable[Batch==batch, name] ){
             for( chrom in pl[[id]][, unique(chr)] )
-            circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
-                                numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
-                                sector.index=chrom)
+                circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
+                                    numeric.column=4, col = sel_col[3*(i-1)+ii], track.index=i+2,
+                                    sector.index=chrom)
             ii = ii+1
-            lab_col = append(lab_col, paste(treatment, sampleTable[name==id, Replicate]))
+            treatment = paste(strsplit(id, "_")[[1]][2:3], collapse="_")
+            lab_col = append(lab_col, treatment)
         }
         i = i+1
     }

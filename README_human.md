@@ -1,4 +1,4 @@
-Tutorial on BLISS Downstream Analysis (human)
+Tutorial on sBLISS Downstream Analysis (human)
 ================
 
 Step 1: Load the required packages:
@@ -53,8 +53,8 @@ Step 3: Prepare the sample table, which will be our internal reference,
 and make sure the paths and filenames are correct:
 
 ``` r
-sampleTable = data.table(name = c("BB61_DMSO_1", "BB62_DMSO_2", "BB61_ETO_1", "BB62_ETO_2"),
-                         Experiment = c("BB61", "BB62", "BB61", "BB62"),
+sampleTable = data.table(name = c("TK6_DMSO_1", "TK6_DMSO_2", "TK6_ETO_1", "TK6_ETO_2"),
+                         Batch = c("1", "2", "1", "2"),
                          Treatment = c("DMSO", "DMSO", "ETO", "ETO"),
                          Replicate = c("1", "2", "1", "2"),
                          path=c("./data/BB61_TK6DMSOrep1_CATCACGC_chr-loc-countDifferentUMI.bed.gz",
@@ -74,7 +74,7 @@ blacklist = fread(cmd=paste("gunzip -c", blacklist),
 blacklist[, `:=`(seqnames = gsub("chr", "", seqnames),  start = start+1, end = end+1)]
 setkeyv(blacklist, colnames(blacklist))
 
-# Load the BLISS samples
+# Load the sBLISS samples
 data = lapply(with(sampleTable, setNames(path, name)), 
               function(x){
                   tmp = fread(cmd=paste("gunzip -c", x), showProgress=FALSE,
@@ -98,7 +98,7 @@ pl = rbindlist(data, idcol="name")
 pl = pl[, lapply(breaks, function(x) .SD[score>=x, .N]), by="name"]
 pl = melt.data.table(pl, id.vars="name")
 pl[, variable := as.numeric(gsub("V", "", variable))]
-pl[, c("Experiment", "Treatment", "Replicate") := tstrsplit(name, "_")]
+pl[, c("Batch", "Treatment", "Replicate") := tstrsplit(name, "_")]
 
 fig1a = ggplot(pl, aes(x=variable, y=value, col=Treatment, shape=Replicate)) +
     ggtitle("TK6 Cells") +
@@ -261,36 +261,41 @@ pl = lapply(data,
 
 pl = lapply(pl,
             function(x){
-                x[, cpm := count/sum(count)*1e6]
-                x[cpm>1e3, cpm := 1e3]
-                return(x[, .(chr=paste0("chr", seqnames), start, end, value = cpm)])
-                })
+                M = mean(x[, count])
+                SD = sd(x[, count])
+                x[, value := count]
+                x[value>(M+3*SD), value := (M+3*SD)]
+                return(x[, .(chr=paste0("chr", seqnames), start, end, value)])
+            })
+
 
 png(filename=file.path("images", "fig1d_human.png"), units="in", width=8, height=8, res=300)
     sel_col = get_palette("Paired", nrow(sampleTable))
     lab_col = c()
+    toplim = ceiling(max(sapply(pl, function(x) x[, max(value)]))/1e3)*1e3
     i = 1
     circos.initializeWithIdeogram(species = genome, chromosome.index = paste0("chr", chromosomes))
-    for( treatment in sampleTable[, rev(unique(Treatment))] ){
-        circos.track(factors=paste0("chr", chromosomes), ylim=c(0, 1000), track.height = 0.1)
+    for( batch in sampleTable[, unique(Batch)] ){
+        circos.track(factors=paste0("chr", chromosomes), ylim=c(0, toplim), track.height = 0.15)
         ii = 1
-        for( id in sampleTable[Treatment==treatment, name] ){
+        for( id in sampleTable[Batch==batch, name] ){
             for( chrom in pl[[id]][, unique(chr)] )
-            circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
-                                numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
-                                sector.index=chrom)
+                circos.genomicLines(region=pl[[id]][chr==chrom,], value=pl[[id]][chr==chrom,],
+                                    numeric.column=4, col = sel_col[2*(i-1)+ii], track.index=i+2,
+                                    sector.index=chrom)
             ii = ii+1
-            lab_col = append(lab_col, paste(treatment, sampleTable[name==id, Replicate]))
+            treatment = paste(strsplit(id, "_")[[1]][2:3], collapse="_")
+            lab_col = append(lab_col, treatment)
         }
         i = i+1
     }
     text(0, 0, "TK6\nDSBs Genomic Profile", cex = 0.8)
     lgd_lines = Legend(at = lab_col, type = "lines", 
-                   legend_gp = gpar(col = sel_col, lwd = 2, fill="white"),
-                   direction = "horizontal", nrow = 1)
+                       legend_gp = gpar(col = sel_col, lwd = 2, fill="white"),
+                       direction = "horizontal", nrow = 1)
     draw(packLegend(lgd_lines), y = unit(6, "mm"), just = "center")
     circos.clear()
-invisible(dev.off())
+dev.off()
 ```
 
 | ![](images/fig1d_human.png) |
