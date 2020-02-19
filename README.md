@@ -1,4 +1,4 @@
-# Tutorial on BLISS Downstream Analysis
+# Tutorial on (s)BLISS Downstream Analysis
 
 Welcome to this tutorial. The aim is to provide a guide to the
 preliminary downstream analysis of (s)BLISS data. A [Nature Protocols
