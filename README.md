@@ -29,7 +29,7 @@ cd blissNPanalysis
 ```
 
 This tutorial assumes that the BED files required for its correct execution,
-which can be downloaded from [here](), are located in the *./data*
+which can be downloaded from [here](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE145598), are located in the *./data*
 folder.
 
 Once the data has been downloaded or moved to the data folder, open R
